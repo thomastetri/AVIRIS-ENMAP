@@ -1,0 +1,50 @@
+import requests
+
+url = "https://cmr.earthdata.nasa.gov/search/granules.json"
+params = {
+    "collection_concept_id": "C3369603199-ORNL_CLOUD",
+    "page_size": 2000,
+    "page_num": 1,
+    "sort_key": "-start_date",
+    "temporal": "2022-07-01T00:00:00.000Z,"
+}
+
+all_granules = []
+page_num = 1
+
+while True:
+    params["page_num"] = page_num
+
+
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    data = response.json()
+
+    entries = data.get('feed', {}).get('entry', [])
+    if not entries:
+        break
+
+    all_granules.extend(entries)
+    print(f"Page {page_num}: Retrieved {len(entries)} granules (Total: {len(all_granules)})")
+    page_num += 1
+
+print(f"\nAVIRIS COLLECTION SUMMARY")
+print(f"Total granules found: {len(all_granules)}")
+
+granules = sorted(all_granules, key=lambda x: x['title'])
+
+# Extract RFL_ORT.nc download links from all granules
+rfl_ort_downloads = []
+for granule in granules:
+    if 'links' in granule:
+        for link in granule['links']:
+            if (link.get('rel') == 'http://esipfed.org/ns/fedsearch/1.1/data#' and 
+                link.get('href', '').endswith('RFL_ORT.nc')):
+                rfl_ort_downloads.append({
+                    'granule_title': granule['title'],
+                    'download_url': link.get('href')
+                })
+
+print(f"\nRFL_ORT.nc files eligible for COG conversion: {len(rfl_ort_downloads)}")
+print(f"\nCONVERSION READY")
+print(f"Ready to convert {len(rfl_ort_downloads)} RFL_ORT.nc files to COG format for faster streaming and downloading.")
